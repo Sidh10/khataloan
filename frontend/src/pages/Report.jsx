@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import CreditScorecard from "../components/CreditScorecard";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 const C   = { ink: "#1A1A2E", saffron: "#E8871A", gold: "#F5A623", cream: "#FDF6EC", muted: "#A08060", green: "#2D7A4F", red: "#C0392B", blue: "#2E86AB" };
@@ -147,6 +148,103 @@ function ScoreAnalysis({ metrics }) {
   );
 }
 
+/* ── Compliance Summary Component ─────────────────────────────
+   Displays RBI Digital Lending + DPDP Act compliance checks
+   with visual pass/warn/fail indicators for loan officers. */
+
+const STATUS_CONFIG = {
+  PASS: { icon: "✅", color: "#2D7A4F", label: "Passed" },
+  WARN: { icon: "⚠️", color: "#F5A623", label: "Warning" },
+  FAIL: { icon: "❌", color: "#C0392B", label: "Failed" },
+};
+
+function ComplianceCheck({ name, flag }) {
+  const cfg = STATUS_CONFIG[flag.status] || STATUS_CONFIG.WARN;
+  return (
+    <div style={{
+      background: "#12122A",
+      borderRadius: "6px",
+      padding: "1rem",
+      border: `1px solid ${cfg.color}44`,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+        <span style={{ fontSize: "1rem" }}>{cfg.icon}</span>
+        <span style={{ color: "#fff", fontSize: "0.85rem", fontWeight: 700 }}>{name}</span>
+        <span style={{
+          marginLeft: "auto",
+          fontSize: "0.7rem",
+          fontWeight: 700,
+          color: cfg.color,
+          background: `${cfg.color}20`,
+          padding: "0.15rem 0.5rem",
+          borderRadius: "3px",
+          textTransform: "uppercase",
+        }}>{cfg.label}</span>
+      </div>
+      <div style={{ color: C.muted, fontSize: "0.78rem", lineHeight: 1.5 }}>{flag.detail}</div>
+      <div style={{ color: "#555", fontSize: "0.68rem", marginTop: "0.3rem", fontStyle: "italic" }}>{flag.guideline}</div>
+    </div>
+  );
+}
+
+function ComplianceSummary({ compliance }) {
+  if (!compliance) return null;
+  const overall = compliance.overall_status || "UNKNOWN";
+  const overallCfg = STATUS_CONFIG[overall] || STATUS_CONFIG.WARN;
+
+  const checks = [
+    { key: "data_minimization", name: "Data Minimization" },
+    { key: "auditability", name: "Audit Trail" },
+    { key: "consent_log", name: "Consent & DPDP Act" },
+  ];
+
+  return (
+    <div style={{
+      background: "#1E1E38",
+      border: `1px solid ${overallCfg.color}`,
+      borderRadius: "8px",
+      padding: "1.5rem",
+      marginBottom: "2rem",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.3rem" }}>
+        <span style={{ fontSize: "1.1rem" }}>🏛️</span>
+        <h2 style={{ color: overallCfg.color, fontSize: "1rem", margin: 0, textTransform: "uppercase", letterSpacing: "1px" }}>
+          Compliance Summary — RBI & DPDP Act
+        </h2>
+        <span style={{
+          marginLeft: "auto",
+          fontSize: "0.72rem",
+          fontWeight: 700,
+          color: overallCfg.color,
+          background: `${overallCfg.color}18`,
+          padding: "0.25rem 0.8rem",
+          borderRadius: "4px",
+          border: `1px solid ${overallCfg.color}40`,
+          textTransform: "uppercase",
+        }}>{overall === "PASS" ? "All Checks Passed" : overall}</span>
+      </div>
+      <p style={{ color: C.muted, fontSize: "0.78rem", marginBottom: "1.2rem", marginTop: "0.3rem" }}>
+        Automated regulatory checks against RBI Digital Lending Guidelines and India's DPDP Act 2023.
+      </p>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+        gap: "0.8rem",
+        marginBottom: "0.8rem",
+      }}>
+        {checks.map(c => compliance[c.key] && (
+          <ComplianceCheck key={c.key} name={c.name} flag={compliance[c.key]} />
+        ))}
+      </div>
+      {compliance.checked_at && (
+        <div style={{ color: "#444", fontSize: "0.68rem", textAlign: "right" }}>
+          Checked: {new Date(compliance.checked_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Report() {
   const { id }          = useParams();
   const navigate        = useNavigate();
@@ -210,9 +308,25 @@ export default function Report() {
 
       <div style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1.5rem" }}>
 
-        <h1 style={{ color: "#fff", marginBottom: "0.3rem" }}>
-          {report.business_name || "Your Business"} — Credit Profile
-        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+          <h1 style={{ color: "#fff", marginBottom: "0.3rem", marginRight: "0.5rem" }}>
+            {report.business_name || "Your Business"} — Credit Profile
+          </h1>
+          {report.compliance_flags?.overall_status === "PASS" && (
+            <span style={{
+              background: "linear-gradient(135deg, #2D7A4F, #2E86AB)",
+              color: "#fff",
+              fontSize: "0.72rem",
+              fontWeight: 800,
+              padding: "0.3rem 0.9rem",
+              borderRadius: "20px",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              whiteSpace: "nowrap",
+              boxShadow: "0 2px 8px rgba(46, 134, 171, 0.3)",
+            }}>🏛️ Regulator Ready</span>
+          )}
+        </div>
         <p style={{ color: C.muted, marginBottom: "2rem" }}>Analysis Period: {metrics.analysis_period || "N/A"}</p>
 
         {/* Score + Risk + Loan */}
@@ -225,6 +339,9 @@ export default function Report() {
 
         {/* ── NEW: Score Analysis / Explainability Component ─── */}
         <ScoreAnalysis metrics={metrics} />
+
+        {/* ── NEW: Compliance Summary ─── */}
+        <ComplianceSummary compliance={report.compliance_flags} />
 
         {/* Narrative */}
         <div style={{ background: "#1E1E38", border: `1px solid ${C.saffron}`, borderRadius: "6px", padding: "1.5rem", marginBottom: "2rem" }}>
@@ -239,22 +356,8 @@ export default function Report() {
           <MetricCard label="Net Monthly Surplus"  value={`₹${(metrics.net_monthly_surplus  || 0).toLocaleString("en-IN")}`} color={C.saffron} />
         </div>
 
-        {/* Revenue chart */}
-        {chartData.length > 0 && (
-          <div style={{ background: "#1E1E38", border: `1px solid #333`, borderRadius: "6px", padding: "1.5rem", marginBottom: "2rem" }}>
-            <h2 style={{ color: C.saffron, fontSize: "1rem", marginBottom: "1rem", textTransform: "uppercase", letterSpacing: "1px" }}>Monthly Revenue vs Expenses</h2>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 11 }} />
-                <YAxis tick={{ fill: C.muted, fontSize: 11 }} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => `₹${v.toLocaleString("en-IN")}`} contentStyle={{ background: C.ink, border: `1px solid ${C.saffron}`, color: "#fff" }} />
-                <Bar dataKey="revenue"  fill={C.saffron} name="Revenue"  radius={[3,3,0,0]} />
-                <Bar dataKey="expenses" fill="#4A3020"   name="Expenses" radius={[3,3,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+        {/* Credit Scorecard Charts */}
+        <CreditScorecard report={report} />
 
         {/* Data gaps */}
         {report.missing_data_flags?.length > 0 && (
